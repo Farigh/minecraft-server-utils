@@ -1,0 +1,62 @@
+--- ./start-minecraft	2016-03-18 17:58:11.000000000 +0100
++++ ./start-minecraft	2016-03-30 23:46:10.590348550 +0200
+@@ -465,12 +465,56 @@
+   fi
+ fi
+
++function cleanup-fifo()
++{
++    local fifo_to_remove=$1
++    if [ -e "$fifo_to_remove" ]; then
++        rm -rf "$fifo_to_remove"
++    fi
++}
++
++function monitor_process()
++{
++    # Wait for java to run
++    sleep 2
++
++    # While java is running
++    while [ "`ps faux | grep java`" != "" ]; do
++        # Only check every seconds
++        sleep 1
++    done
++
++    cleanup-fifo $stdin_fifo
++    # Kill cat to go through fifo loop
++    pkill -9 cat
++}
++
++function get_input()
++{
++    while [ -e "$stdin_fifo" ]; do
++        cat "$stdin_fifo"
++        # Tempo to yeld the processor
++        sleep 1
++    done
++}
++
++stdin_fifo=/data/minecraft_server.stdin
++
++trap "cleanup-fifo $stdin_fifo" SIGHUP SIGINT SIGTERM SIGKILL
++
++if [ -e "$stdin_fifo" ]; then
++    rm -rf "$stdin_fifo"
++fi
++mkfifo "$stdin_fifo"
++
++monitor_process &
++
+ # If we have a bootstrap.txt file... feed that in to the server stdin
+ if [ -f /data/bootstrap.txt ];
+ then
+-    exec java $JVM_OPTS -jar $SERVER < /data/bootstrap.txt
++    get_input | exec java $JVM_OPTS -jar $SERVER < /data/bootstrap.txt
+ else
+-    exec java $JVM_OPTS -jar $SERVER
++    get_input | exec java $JVM_OPTS -jar $SERVER
+ fi
+
+-exec java $JVM_OPTS -jar $SERVER
++cleanup-fifo $stdin_fifo
