@@ -4,23 +4,24 @@ docker_hub_image=itzg/minecraft-server
 resolved_script_path=`readlink -f $0`
 current_script_dir=`dirname $resolved_script_path`
 current_full_path=`readlink -e $current_script_dir`
-docker_diff_path="$current_full_path/docker-diff"
-server_data_dir="$current_full_path/server_data"
+docker_diff_path="$current_full_path/.utils/docker-diff"
+default_server_data_dir="$current_full_path/server_data"
 script_start_date=$(date +"%s")
 
-# TODO: handle multiple configurations
-# TODO: check current config
+# Includes
+utils_dir="$current_full_path/.utils"
+
+source "$utils_dir/functions.config.bash"
+source "$utils_dir/vars.colors.bash"
+
+# TODO: check current container config
 
 config_dir="${current_full_path}/config"
 config_file="${config_dir}/server.cfg"
-RESET_COLOR=$(echo -en '\e[00m')
-BOLD=$(echo -en '\e[1;37m')
-RED=$(echo -en '\e[0;31m')
-CYAN=$(echo -en '\e[0;36m')
 
 if [ ! -f "$config_file" ]; then
     if [ ! -d "$config_dir" ]; then
-        mkdir -p "$config_dir" || (echo "${RED}Error: Can't create configuration dir : '$config_dir'${RESET_COLOR}" && exit 1)
+        mkdir -p "$config_dir" || (echo "${RED_COLOR}Error: Can't create configuration dir : '$config_dir'${RESET_COLOR}" && exit 1)
     fi
 
     echo "# Server deployment configuration file
@@ -96,19 +97,19 @@ function parse_config_file()
         if [ "$linux_autoupdate" == "true" ]; then
             docker_run_opt="${docker_run_opt} -e KEEP_LINUX_UP_TO_DATE=true"
         elif [ "$linux_autoupdate" != "false" ]; then
-            echo "${BOLD}Info: linux_autoupdate set to unknown value '$linux_autoupdate', ignoring it${RESET_COLOR}"
+            echo "${WHITE_BOLD_COLOR}Info: linux_autoupdate set to unknown value '$linux_autoupdate', ignoring it${RESET_COLOR}"
         fi
     fi
 
     if [ "$minecraft_version" == "" ]; then
-        echo "${RED}Error: minecraft_version can not be empty${RESET_COLOR}"
+        echo "${RED_COLOR}Error: minecraft_version can not be empty${RESET_COLOR}"
         error_occured=1
     else
         docker_run_opt="${docker_run_opt} -e VERSION=${minecraft_version}"
     fi
 
     if [ "$minecraft_server_type" == "" ]; then
-        echo "${RED}Error: minecraft_server_type can not be empty${RESET_COLOR}"
+        echo "${RED_COLOR}Error: minecraft_server_type can not be empty${RESET_COLOR}"
         error_occured=1
     else
         docker_run_opt="${docker_run_opt} -e TYPE=${minecraft_server_type}"
@@ -116,7 +117,7 @@ function parse_config_file()
 
     if [ "$minecraft_server_type" == "FORGE" ]; then
         if [ "$minecraft_forge_version" == "" ]; then
-            echo "${BOLD}Info: minecraft_forge_version not specified, using RECOMMENDED version${RESET_COLOR}"
+            echo "${WHITE_BOLD_COLOR}Info: minecraft_forge_version not specified, using RECOMMENDED version${RESET_COLOR}"
             minecraft_forge_version=RECOMMENDED
         fi
 
@@ -124,7 +125,7 @@ function parse_config_file()
     fi
 
     if [ "$minecraft_host_port" == "" ]; then
-        echo "${RED}Error: minecraft_host_port can not be empty${RESET_COLOR}"
+        echo "${RED_COLOR}Error: minecraft_host_port can not be empty${RESET_COLOR}"
         error_occured=1
     else
         docker_run_opt="${docker_run_opt} -p ${minecraft_host_port}:25565"
@@ -134,7 +135,7 @@ function parse_config_file()
     docker_run_opt="${docker_run_opt} -e EULA=TRUE"
 
     if [ "$docker_name" == "" ]; then
-        echo "${RED}Error: docker_name can not be empty${RESET_COLOR}"
+        echo "${RED_COLOR}Error: docker_name can not be empty${RESET_COLOR}"
         error_occured=1
     else
         docker_run_opt="${docker_run_opt} --name ${docker_name}"
@@ -145,7 +146,7 @@ function parse_config_file()
 
     # If error occured, exit the script
     if [ $error_occured -ne 0 ]; then
-        echo "${RED}Error occurred, exiting${RESET_COLOR}"
+        echo "${RED_COLOR}Error occurred, exiting${RESET_COLOR}"
         exit 1
     fi
 }
@@ -153,7 +154,7 @@ function parse_config_file()
 function check_if_not_already_started()
 {
     if [ "$(docker inspect -f {{.State.Running}} $docker_name)" == "true" ]; then
-        echo "${RED}Error: container '$docker_name' is already running${RESET_COLOR}"
+        echo "${RED_COLOR}Error: container '$docker_name' is already running${RESET_COLOR}"
         exit 1
     fi
 }
@@ -221,12 +222,6 @@ function pull_docker()
 
 function initial_run_docker()
 {
-    # Root right needed
-    if [ "`whoami`" != "root" ]; then
-        echo "${RED}Root right needed to run docker deamon, rerun as root or using sudo${RESET_COLOR}"
-        exit 1
-    fi
-
     echo "=== '$docker_name' initial run...."
     docker_container_id=`docker run $docker_run_opt`
     # Sleep 10 seconds so it has time to create files
@@ -423,16 +418,15 @@ function start_docker()
 
 source ${config_file}
 
-if [ "$server_data_dir" == "" ]; then
-    echo "${RED}Error: custom server_data_dir set to an empty value, please edit your config file${RESET_COLOR}"
-fi
+load_config_file $config_dir $default_server_data_dir
 
+# Create server data dir on first run
 if [ ! -d "$server_data_dir" ]; then
     if [ -e "$server_data_dir" ]; then
-        echo "${RED}Error: '$server_data_dir' exists but is not a directory${RESET_COLOR}"
+        echo "${RED_COLOR}Error: '$server_data_dir' exists but is not a directory${RESET_COLOR}"
     else
-        echo "${CYAN}Info: Creating directory '$server_data_dir'${RESET_COLOR}"
-        mkdir -p "$server_data_dir" || (echo "${RED}Error: Can't create '$server_data_dir'${RESET_COLOR}" && exit 1)
+        echo "${CYAN_COLOR}Info: Creating directory '$server_data_dir'${RESET_COLOR}"
+        mkdir -p "$server_data_dir" || (echo "${RED_COLOR}Error: Can't create '$server_data_dir'${RESET_COLOR}" && exit 1)
     fi
 fi
 
