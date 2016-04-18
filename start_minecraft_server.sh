@@ -5,7 +5,6 @@ resolved_script_path=`readlink -f $0`
 current_script_dir=`dirname $resolved_script_path`
 current_full_path=`readlink -e $current_script_dir`
 docker_diff_path="$current_full_path/.utils/docker-diff"
-default_server_data_dir="$current_full_path/server_data"
 script_start_date=$(date +"%s")
 
 # Includes
@@ -13,6 +12,7 @@ utils_dir="$current_full_path/.utils"
 
 source "$utils_dir/functions.config.bash"
 source "$utils_dir/vars.colors.bash"
+source "$utils_dir/vars.default.bash"
 
 # TODO: check current container config
 
