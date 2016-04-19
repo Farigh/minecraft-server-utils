@@ -6,6 +6,7 @@ current_script_dir=`dirname $resolved_script_path`
 current_full_path=`readlink -e $current_script_dir`
 docker_diff_path="$current_full_path/.utils/docker-diff"
 script_start_date=$(date +"%s")
+erase_current_line_sequence="\r$(tput el)" # clear to end of line
 
 # Includes
 utils_dir="$current_full_path/.utils"
@@ -267,7 +268,7 @@ function get_server_launching_status()
        || [ $(stat -c '%Y' $server_log_file) -le $script_start_date ];
     do
         if [ $waiting_count -eq 0 ]; then
-            printf "  Running server...%-45s\r" "( ${server_launch_animated_steps[$server_launch_animated_steps_index]} waiting for server logs)"
+            echo -ne "${erase_current_line_sequence}  Running server...( ${server_launch_animated_steps[$server_launch_animated_steps_index]} waiting for server logs)"
             server_launch_animated_steps_index=$(((server_launch_animated_steps_index + 1) % 4))
         fi
 
@@ -286,7 +287,7 @@ function get_server_launching_status()
            || [ $(stat -c '%Y' $forge_server_log_file) -le $script_start_date ];
         do
             if [ $waiting_count -eq 0 ]; then
-                printf "  Running server...%-45s\r" "( ${server_launch_animated_steps[$server_launch_animated_steps_index]} waiting for forge logs)"
+                echo -ne "${erase_current_line_sequence}  Running server...( ${server_launch_animated_steps[$server_launch_animated_steps_index]} waiting for forge logs)"
                 server_launch_animated_steps_index=$(((server_launch_animated_steps_index + 1) % 4))
             fi
 
@@ -301,7 +302,6 @@ function get_server_launching_status()
     local forge_status="Forge: Initializing..."
     local displayed_status
     local previous_length=0
-    local blank_line='                                                                                '
 
     while read server_log_line; do
         # Server started
@@ -343,9 +343,7 @@ function get_server_launching_status()
         fi
 
         # Print on the same line erasing previous chars
-        local status="  Running server...( ${server_launch_animated_steps[$server_launch_animated_steps_index]} $displayed_status)"
-        local trailling_blanks=${blank_line:${#status}}
-        echo -ne "$status$trailling_blanks\r"
+        echo -ne "${erase_current_line_sequence}  Running server...( ${server_launch_animated_steps[$server_launch_animated_steps_index]} $displayed_status)"
         server_launch_animated_steps_index=$(((server_launch_animated_steps_index + 1) % 4))
 
         if [ $mc_server_initialisation_done -eq 1 ] && [ $forge_initialisation_done -eq 1 ]; then
@@ -365,7 +363,7 @@ function start_docker()
     docker start $docker_name > /dev/null
 
     # Check for update completion
-    echo -ne "  Updating Linux packages...\r"
+    echo -ne "${erase_current_line_sequence}  Updating Linux packages..."
     # Wait for start script to run
     sleep 2
 
@@ -390,19 +388,19 @@ function start_docker()
                 update_step="${update_step_begin}...${update_step_end}"
             fi
         fi
-        printf "  Updating Linux packages...%-45s\r" "( ${animated_steps[$animate_index]} $update_step)"
+        echo -ne "${erase_current_line_sequence}  Updating Linux packages...( ${animated_steps[$animate_index]} $update_step)"
         animate_index=$(((animate_index + 1) % 4))
         sleep 1
     done
-    printf "  Updating Linux packages...%-45s\n" "Done"
+    echo -e "${erase_current_line_sequence}  Updating Linux packages...Done"
 
     # Check for server running status
-    echo -ne "  Running server...( ${animated_steps[$animate_index]} starting java process)\r"
+    echo -ne "  Running server...( ${animated_steps[$animate_index]} starting java process)"
     animate_index=$(((animate_index + 1) % 4))
     # Wait for java to start
     while [ "`docker exec -i -t $docker_name ps ax -o command | grep 'java'`" == "" ]; do
         sleep 1
-        printf "  Running server...%-45s\r" "( ${animated_steps[$animate_index]} starting java process)"
+        echo -ne "${erase_current_line_sequence}  Running server...( ${animated_steps[$animate_index]} starting java process)"
         animate_index=$(((animate_index + 1) % 4))
     done
     sleep 1
