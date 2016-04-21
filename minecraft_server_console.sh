@@ -11,6 +11,87 @@ source "$utils_dir/functions.config.bash"
 source "$utils_dir/vars.colors.bash"
 source "$utils_dir/vars.default.bash"
 
+function erase_buffer_content()
+{
+    local current_term_cols=$(tput cols)
+    local buffer_line_occupation=$(((${#input_buffer} + ${#prompt_value}) / $current_term_cols))
+    # +1 for input separator line
+    ((buffer_line_occupation++))
+
+    # Erase current line (before pointer)
+    tput el1
+    # Move cursor back to the beginning of the line
+    echo -ne "\r"
+
+    # Move cursor up as many times as needed
+    for ((line_count=0; line_count < $buffer_line_occupation; line_count++)); do
+        tput cuu1
+    done
+
+    # Clear term until end of screen
+    tput ed
+}
+
+function restore_promp()
+{
+    # Add input separator line
+    # TODO: fit screen size ?
+    echo "=============== (enter 'q' to quit) ==============="
+
+    # Restore input buffer
+    local diff=$(wc -l "$server_latest_logs" | cut -d' ' -f1)
+    echo -n "$prompt_value$input_buffer"
+}
+
+function process_logs()
+{
+    local index=0
+    local linebuffer
+
+    # If no new entry in logs, just return
+    if [ $(($backlog_start - 1)) -eq $(wc -l "$server_latest_logs" | cut -d' ' -f1) ]; then
+        return
+    fi
+
+    while read -e log_line; do
+        linebuffer[$index]=$log_line
+        ((index++))
+    done < <(tail -n+$backlog_start "$server_latest_logs")
+
+    #######################
+    ### Refresh display ###
+    #######################
+
+    # Erase command part
+    erase_buffer_content
+
+    # Print all buffered lines
+    for ((line_index=0; line_index < index; line_index++)); do
+        echo "${linebuffer[$line_index]}"
+        ((backlog_start++))
+    done
+
+    restore_promp
+}
+
+function wait_for_server_logs()
+{
+    declare -A wait_animated_steps
+    wait_animated_steps[0]="|"
+    wait_animated_steps[1]="/"
+    wait_animated_steps[2]="-"
+    wait_animated_steps[3]="\\"
+    local wait_animated_steps_index=0
+    local erase_current_line_sequence="\r$(tput el)" # clear to end of line
+
+    while [ ! -e "${minecraft_server_stdin}" ]; do
+        echo -en "${erase_current_line_sequence}Waiting for the process to start... ${wait_animated_steps[$wait_animated_steps_index]}"
+        wait_animated_steps_index=$(((wait_animated_steps_index + 1) % 4))
+        sleep 0.5;
+    done
+    echo -e "${erase_current_line_sequence}Waiting for the process to start...Done"
+}
+
 ################################################
 ###                   MAIN                   ###
 ################################################
@@ -20,31 +101,77 @@ config_dir="${current_full_path}/config"
 load_config_file $config_dir $default_server_data_dir
 
 minecraft_server_stdin="$server_data_dir/minecraft_server.stdin"
+server_latest_logs="$server_data_dir/logs/latest.log"
 
-while [ ! -e "$minecraft_server_stdin" ]; do
-    echo "Waiting for the process to launch $minecraft_server_stdin"
-    sleep 1;
+# Wait for server to start logging
+wait_for_server_logs
+
+max_backlog_size=10
+backlog_start=$(($(wc -l "$server_latest_logs" | cut -d' ' -f1) - $max_backlog_size))
+if [ $backlog_start -lt 1 ]; then
+    backlog_start=1
+fi
+
+prompt_value=" > "
+input_buffer=""
+
+# Initialise backlog buffer
+process_logs
+
+# Read timeout set to 1 for backlog refresh
+while true; do
+    IFS= read -t1 -r -s -n1 char
+    read_status=$?
+
+    case "$char" in
+        # Carriage return (read_status != 0 means we timed out)
+        $'\0')
+            if [ $read_status -eq 0 ]; then
+                if [ "$input_buffer" == "q" ]; then
+                    break
+                fi
+                # Erase on-screen buffer display before sending content
+                erase_buffer_content
+                echo "$input_buffer" > $minecraft_server_stdin;
+
+                # Restore promp
+                restore_promp
+
+                # Reset buffer
+                input_buffer=""
+
+                # Wait 50ms for logs to refresh so command result appears right away
+                sleep 0.05
+            fi
+        ;;
+        $'\177')
+            # Backspace char
+            if [ ${#input_buffer} -gt 0 ]; then
+                input_buffer=${input_buffer::-1}
+                # Erase char on screen
+                tput cub 1
+                echo -n " "
+                tput cub 1
+            fi
+        ;;
+        $'\e')
+            # Escape sequence, skip next 2 chars (most common escape sequence, should read 1 or 2 more for all special keys)
+            read -s -n1 -t 0.0001 skip
+            read -s -n1 -t 0.0001 skip
+        ;;
+        $'\t')
+            # Ignore tabs
+        ;;
+        # Any other char
+        *)
+            input_buffer="$input_buffer$char"
+            # Display char
+            echo -n "$char"
+        ;;
+    esac
+
+    process_logs
 done
 
-tail -f "$server_data_dir/logs/latest.log" &
-output_reader_pid=$!
-echo "PID = $output_reader_pid"
-
-function kill_processes()
-{
-    echo "Quit"
-    kill -9 $output_reader_pid
-    exit 0
-}
-
-trap "kill_processes" SIGHUP SIGINT SIGTERM SIGKILL
-
-while read line; do
-    if [ "$line" == "q" ]; then
-        break
-    fi
-    echo $line > $minecraft_server_stdin;
-done
-
-
-kill_processes
+erase_buffer_content
+echo -e "Exited"
