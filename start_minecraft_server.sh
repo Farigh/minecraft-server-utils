@@ -57,8 +57,8 @@ minecraft_version=LATEST
 # Minecraft server type
 # Available values :
 #    FORGE
-#    SPIGOT   (not supported yet)
-#    BUKKIT   (not supported yet)
+#    SPIGOT
+#    BUKKIT   (outdated)
 #    VANILLA
 minecraft_server_type=VANILLA
 
@@ -243,7 +243,7 @@ function pull_docker()
 
 function initial_run_docker()
 {
-    #TODO: get this location from docker info
+    # TODO: get this location from docker info
     local docker_diff_dir="/var/lib/docker/aufs/diff/"
     ls $docker_diff_dir 2>/dev/null
     ls_exit_code=$?

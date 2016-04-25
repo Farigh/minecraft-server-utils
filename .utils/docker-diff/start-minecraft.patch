@@ -1,5 +1,5 @@
 --- ./start-minecraft	2016-04-24 04:10:11.000000000 +0200
-+++ ./start-minecraft	2016-04-25 19:31:10.590348550 +0200
++++ ./start-minecraft	2016-04-25 20:13:15.000000000 +0200
 @@ -399,12 +399,56 @@
    fi
  fi
@@ -24,7 +24,7 @@
 +    done
 +
 +    cleanup-fifo $stdin_fifo
-+    # Kill cat to go through fifo reading loop
++    # Kill cat to go through fifo loop
 +    pkill -9 cat
 +}
 +
@@ -52,12 +52,14 @@
  if [ -f /data/bootstrap.txt ];
  then
 -    exec java $JVM_OPTS -jar $SERVER < /data/bootstrap.txt
-+    get_input | exec java $JVM_OPTS -jar $SERVER < /data/bootstrap.txt
- else
+-else
 -    exec java $JVM_OPTS -jar $SERVER
-+    get_input | exec java $JVM_OPTS -jar $SERVER
++    bootstrap_opts="< /data/bootstrap.txt"
  fi
 
 -exec java $JVM_OPTS -jar $SERVER
++get_input | exec java $JVM_OPTS -jar $SERVER $bootstrap_opts
++
 +cleanup-fifo $stdin_fifo
+
 
