@@ -27,9 +27,9 @@ if [ ! -f "$config_file" ]; then
 
     echo "# Server deployment configuration file
 
-# Docker container base auto-update
-# Switch to 'true' to update docker as soon as a new version of the container is available
-docker_autoupdate=false
+# Docker container base update checking
+# Switch to 'true' to check for docker file updates
+docker_check_for_updates=false
 
 # Docker linux distribution auto-update
 # Switch to 'true' to updates Linux paquages on start
@@ -37,6 +37,9 @@ linux_autoupdate=false
 
 # Docker container name (change it if you plan on running multiple configurations)
 docker_name=minecraft_server
+
+# Docker container version (change it at your own risk)
+docker_commit=c362e5bdd80a84ecb601d3dabd6ea49d74b19039d6dee665b1bdd90538b6506b
 
 # Docker data dir location (this can not be empty, default is <start_script_dir>/server_data)
 # Uncomment it to change this value (if dir does not exist it will be created)
@@ -75,7 +78,7 @@ function print_config_params()
     echo "========================================================"
     echo "====              Config file settings              ===="
     echo "========================================================"
-    echo "Docker container base auto-update     : $docker_autoupdate"
+    echo "Check docker container base version   : $docker_check_for_updates"
     echo "Docker linux distribution auto-update : $linux_autoupdate"
     echo "Docker container name                 : $docker_name"
     echo "Minecraft server port                 : $minecraft_host_port"
@@ -143,7 +146,7 @@ function parse_config_file()
     fi
 
     # Add image to run
-    docker_run_opt="${docker_run_opt} ${docker_hub_image}"
+    docker_run_opt="${docker_run_opt} ${docker_hub_image}@${docker_commit}"
 
     # If error occured, exit the script
     if [ $error_occured -ne 0 ]; then
@@ -169,15 +172,15 @@ function pull_docker()
     # Initialize to 0
     is_docker_run_needed=0
 
-    if [ "$force_docker_update" != "true" ] && [ "$docker_images_out" != "" ]; then
-        # only pull docker image it does not exist or update is activated
-        return
+    if [ "$docker_check_for_updates" == "true" ] \
+       || [ "$force_docker_update" == "true" ]   \
+       || [ "$docker_find_image" == "" ]; then
+        # Only pull docker image if it does not exist, check for update option is enabled or force update is activated
+        echo "=== Pulling docker container from '$docker_hub_image' ..."
+        docker pull $docker_hub_image
     fi
 
-    echo "=== Updating docker container for '$docker_hub_image' ..."
-    docker pull $docker_hub_image
-
-    if [ "$docker_images_out" != "" ]; then
+    if [ "$docker_find_image" == "" ]; then
         # First pull, don't go any further
         is_docker_run_needed=1
         return
@@ -196,9 +199,26 @@ function pull_docker()
         current_version=`docker inspect --format "{{.Image}}" $docker_container_id`
 
         echo "  Current version       = $current_version"
+        echo "  Configured version    = $docker_commit"
 
-        if [ "$server_version" != "$current_version" ]; then
-            echo -n "Version miss-match, removing container and image "
+        if [ "$server_version" != "$docker_commit" ]; then
+            # Update required, backup config and modify docker_commit
+            if [ "$force_docker_update" == "true" ]; then
+                docker_commit=$server_version
+                # Backup config file
+                cp -f "${config_file}" "${config_file}.bak"
+                sed -i "s/docker_commit=[a-fA-F0-9]*/docker_commit=${server_version}/" "${config_file}"
+                # Update version in config
+            # No update required, just print if version differs
+            elif [ "$docker_check_for_updates" == "true" ]; then
+                echo "${CYAN_COLOR}Info: A new version of the docker container is available${RESET_COLOR}"
+                echo "${CYAN_COLOR}      You can rerun this script using --force-update option to use it${RESET_COLOR}"
+                echo  "${RED_COLOR}      /!\\${CYAN_COLOR} If you do so, it might not work properly anymore${RESET_COLOR}"
+            fi
+        fi
+
+        if [ "$docker_commit" != "$current_version" ]; then
+            echo -n "Updating to '$docker_commit' revision, removing container and image "
             docker rm $docker_container_id
 
             date=`date +'%Y-%m-%d'`
@@ -223,6 +243,16 @@ function pull_docker()
 
 function initial_run_docker()
 {
+    #TODO: get this location from docker info
+    local docker_diff_dir="/var/lib/docker/aufs/diff/"
+    ls $docker_diff_dir 2>/dev/null
+    ls_exit_code=$?
+
+    if [ $ls_exit_code -gt 0 ]; then
+        echo "${RED_COLOR}Error: can't access '$docker_diff_dir', consider reruning as root${RESET_COLOR}"
+        exit 1
+    fi
+
     echo "=== '$docker_name' initial run...."
     docker_container_id=`docker run $docker_run_opt`
     # Sleep 10 seconds so it has time to create files
@@ -414,6 +444,11 @@ function start_docker()
 ###                   MAIN                   ###
 ################################################
 
+force_update="false"
+if [ "$1" == "--force-update" ]; then
+    force_update="true"
+fi
+
 source ${config_file}
 
 load_config_file $config_dir $default_server_data_dir
@@ -434,7 +469,7 @@ parse_config_file
 
 check_if_not_already_started
 
-pull_docker $docker_autoupdate
+pull_docker $force_update
 
 if [ "$is_docker_run_needed" == "1" ]; then
     initial_run_docker

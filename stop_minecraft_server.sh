@@ -84,4 +84,23 @@ for ((index=0; index <= $(($timer_index - 1)); index++)); do
     fi
 done
 
+declare -A server_stop_animated_steps
+server_stop_animated_steps[0]="|"
+server_stop_animated_steps[1]="/"
+server_stop_animated_steps[2]="-"
+server_stop_animated_steps[3]="\\"
+server_stop_animated_steps_index=0
+erase_current_line_sequence="\r$(tput el)" # clear to end of line
+timeout=120 # Server should stop in less than 2 minutes
+while [ "$(docker inspect -f {{.State.Running}} $docker_name)" == "true" ]; then
+    echo -ne "${erase_current_line_sequence}Waiting for docker container to stop...${server_stop_animated_steps[$server_stop_animated_steps_index]}"
+    server_stop_animated_steps_index=$(((server_stop_animated_steps_index + 1) % 4))
+    ((timeout--))
+    if [ $timeout -eq 0 ]; then
+        echo "${RED_COLOR}Error: docker container is hanging, calling stop${RESET_COLOR}"
+        docker stop $docker_name
+    fi
+    sleep 1
+done
+
 echo "Done"

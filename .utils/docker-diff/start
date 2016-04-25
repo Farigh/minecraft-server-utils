@@ -12,7 +12,13 @@ while lsof -- /start-minecraft; do
   sleep 1
 done
 
-echo "...updating distrib"
-apt-get update && apt-get -y upgrade
+if [ "$KEEP_LINUX_UP_TO_DATE" == "true" ]; then
+    echo "...updating distrib"
+    apt-get update && apt-get -y upgrade
+fi
 
-exec /start-minecraft
+mkdir -p /home/minecraft
+chown minecraft: /home/minecraft
+
+echo "Switching to user 'minecraft'"
+exec sudo -E -u minecraft /start-minecraft

@@ -1,6 +1,6 @@
---- ./start-minecraft	2016-03-18 17:58:11.000000000 +0100
-+++ ./start-minecraft	2016-03-30 23:46:10.590348550 +0200
-@@ -465,12 +465,56 @@
+--- ./start-minecraft	2016-04-24 04:10:11.000000000 +0200
++++ ./start-minecraft	2016-04-25 19:31:10.590348550 +0200
+@@ -399,12 +399,56 @@
    fi
  fi
 
@@ -24,7 +24,7 @@
 +    done
 +
 +    cleanup-fifo $stdin_fifo
-+    # Kill cat to go through fifo loop
++    # Kill cat to go through fifo reading loop
 +    pkill -9 cat
 +}
 +
@@ -60,3 +60,4 @@
 
 -exec java $JVM_OPTS -jar $SERVER
 +cleanup-fifo $stdin_fifo
+
