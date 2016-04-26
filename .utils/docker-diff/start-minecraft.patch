@@ -60,6 +60,7 @@
 -exec java $JVM_OPTS -jar $SERVER
 +get_input | exec java $JVM_OPTS -jar $SERVER $bootstrap_opts
 +
++# We should never get this far without cleaning first, but just in case
 +cleanup-fifo $stdin_fifo
 
 

@@ -163,6 +163,21 @@ function check_if_not_already_started()
     fi
 }
 
+function check_if_port_is_already_used()
+{
+    # List all running docker container with same port
+    local docker_if_running_cond="{{if eq true .State.Running }}"
+    local docker_display_code="{{.Name}} {{ (index (index .HostConfig.PortBindings \"25565/tcp\") 0).HostPort }}"
+    local docker_inspect_result=$(docker inspect -f "${docker_if_running_cond}${docker_display_code}{{end}}" $(docker ps -aq))
+    local filtered_result=$(echo -e "$docker_inspect_result" | grep " ${minecraft_host_port}$")
+
+    if [ "${filtered_result}" != "" ]; then
+        echo "${RED_COLOR}Error: Running docker container already listening on port ${minecraft_host_port}:"
+        echo "${filtered_result}${RESET_COLOR}"
+        exit 1
+    fi
+}
+
 #  in : force_docker_update (true/false)
 # out : is_docker_run_needed (0/1)
 function pull_docker()
@@ -468,6 +483,7 @@ print_config_params
 parse_config_file
 
 check_if_not_already_started
+check_if_port_is_already_used
 
 pull_docker $force_update
 
