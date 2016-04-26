@@ -15,88 +15,12 @@ source "$utils_dir/functions.config.bash"
 source "$utils_dir/vars.colors.bash"
 source "$utils_dir/vars.default.bash"
 
-# TODO: check current container config
-
-config_dir="${current_full_path}/config"
-config_file="${config_dir}/server.cfg"
-
-if [ ! -f "$config_file" ]; then
-    if [ ! -d "$config_dir" ]; then
-        mkdir -p "$config_dir" || (echo "${RED_COLOR}Error: Can't create configuration dir : '$config_dir'${RESET_COLOR}" && exit 1)
-    fi
-
-    echo "# Server deployment configuration file
-
-# Docker container base update checking
-# Switch to 'true' to check for docker file updates
-docker_check_for_updates=false
-
-# Docker linux distribution auto-update
-# Switch to 'true' to updates Linux paquages on start
-linux_autoupdate=false
-
-# Docker container name (change it if you plan on running multiple configurations)
-docker_name=minecraft_server
-
-# Docker container version (change it at your own risk)
-docker_commit=c362e5bdd80a84ecb601d3dabd6ea49d74b19039d6dee665b1bdd90538b6506b
-
-# Docker data dir location (this can not be empty, default is <start_script_dir>/server_data)
-# Uncomment it to change this value (if dir does not exist it will be created)
-# server_data_dir=
-
-# Minecraft server port (default port is 25565)
-minecraft_host_port=25565
-
-# Minecraft version (enter a specific number if you want a fixed version)
-# Special values :
-#    LATEST
-#    SNAPSHOT
-minecraft_version=LATEST
-
-# Minecraft server type
-# Available values :
-#    FORGE
-#    SPIGOT
-#    BUKKIT   (outdated)
-#    VANILLA
-minecraft_server_type=VANILLA
-
-# Minecraft forge version (if you don't use forge this is ignored)
-# Special values :
-#    RECOMMENDED
-minecraft_forge_version=
-" > ${config_file}
-
-    echo "Default config file created at ${config_file}."
-    echo "Edit it to fit your needs and run this script again"
-    exit 0
-fi
-
 ################################################
 ###                FUNCTIONS                 ###
 ################################################
 
-function print_config_params()
-{
-    echo "========================================================"
-    echo "====              Config file settings              ===="
-    echo "========================================================"
-    echo "Check docker container base version   : $docker_check_for_updates"
-    echo "Docker linux distribution auto-update : $linux_autoupdate"
-    echo "Docker container name                 : $docker_name"
-    echo "Minecraft server port                 : $minecraft_host_port"
-    echo "Minecraft version                     : $minecraft_version"
-    echo "Minecraft server type                 : $minecraft_server_type"
-
-    if [ "$minecraft_server_type" == "FORGE" ]; then
-        echo "Minecraft forge version               : $minecraft_forge_version"
-    fi
-    echo "========================================================"
-}
-
 # out : docker_run_opt
-function parse_config_file()
+function create_docker_options()
 {
     docker_run_opt="-d -v $server_data_dir:/data"
     local error_occured=0
@@ -220,6 +144,7 @@ function pull_docker()
         echo "  Current version       = $current_version"
         echo "  Configured version    = $docker_commit"
 
+        # TODO: check current container config
         if [ "$server_version" != "$docker_commit" ]; then
             # Update required, backup config and modify docker_commit
             if [ "$force_docker_update" == "true" ]; then
@@ -260,7 +185,7 @@ function pull_docker()
     fi
 }
 
-function initial_run_docker()
+function docker_initial_run()
 {
     # TODO: get this location from docker info
     local docker_diff_dir="/var/lib/docker/aufs/diff/"
@@ -512,6 +437,15 @@ done
 ###                   MAIN                   ###
 ################################################
 
+config_dir="${current_full_path}/config"
+config_file="${config_dir}/server.cfg"
+
+if [ ! -f "$config_file" ]; then
+    generate_default_config_file $config_file
+    echo "Edit it to fit your needs and run this script again"
+    exit 0
+fi
+
 source ${config_file}
 
 load_config_file $config_dir $default_server_data_dir
@@ -520,6 +454,7 @@ load_config_file $config_dir $default_server_data_dir
 if [ ! -d "$server_data_dir" ]; then
     if [ -e "$server_data_dir" ]; then
         echo "${RED_COLOR}Error: '$server_data_dir' exists but is not a directory${RESET_COLOR}"
+        exit 1
     else
         echo "${CYAN_COLOR}Info: Creating directory '$server_data_dir'${RESET_COLOR}"
         mkdir -p "$server_data_dir" || (echo "${RED_COLOR}Error: Can't create '$server_data_dir'${RESET_COLOR}" && exit 1)
@@ -528,15 +463,14 @@ fi
 
 print_config_params
 
-parse_config_file
-
 check_if_not_already_started
 check_if_port_is_already_used
 
 pull_docker $force_update
 
 if [ "$is_docker_run_needed" == "1" ]; then
-    initial_run_docker
+    create_docker_options
+    docker_initial_run
 fi
 
 start_docker
