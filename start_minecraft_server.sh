@@ -73,6 +73,10 @@ minecraft_forge_version=
     exit 0
 fi
 
+################################################
+###                FUNCTIONS                 ###
+################################################
+
 function print_config_params()
 {
     echo "========================================================"
@@ -455,14 +459,58 @@ function start_docker()
     echo "=== Done"
 }
 
+function print_usage()
+{
+    echo "Usage: $0 [OPTION]..."
+    echo "Runs a minecraft server using docker"
+    echo ""
+    echo "-f, --force-update  force docker image update"
+    echo "-h, --help          display this help and exit"
+}
+
 ################################################
-###                   MAIN                   ###
+###                  GETOPT                  ###
 ################################################
 
 force_update="false"
-if [ "$1" == "--force-update" ]; then
-    force_update="true"
-fi
+while getopts ":fh-:" parsed_option; do
+    case "${parsed_option}" in
+        # Long options
+        -)
+            case "${OPTARG}" in
+                force-update)
+                    force_update="true"
+                ;;
+                help)
+                    print_usage
+                    exit 0
+                ;;
+                *)
+                    echo "Unknown option --${OPTARG}"
+                    print_usage
+                    exit 1
+                ;;
+            esac
+        ;;
+        # Short options
+        f)
+            force_update="true"
+        ;;
+        h)
+            print_usage
+            exit 0
+        ;;
+        *)
+            echo "Unknown option -${parsed_option}"
+            print_usage
+            exit 1
+        ;;
+    esac
+done
+
+################################################
+###                   MAIN                   ###
+################################################
 
 source ${config_file}
 
