@@ -93,7 +93,7 @@ server_stop_animated_steps_index=0
 erase_current_line_sequence="\r$(tput el)" # clear to end of line
 timeout=120 # Server should stop in less than 2 minutes
 while [ "$(docker inspect -f {{.State.Running}} $docker_name)" == "true" ]; do
-    echo -ne "${erase_current_line_sequence}Waiting for docker container to stop...${server_stop_animated_steps[$server_stop_animated_steps_index]}"
+    echo -ne "${erase_current_line_sequence}Waiting for docker container to stop... ${server_stop_animated_steps[$server_stop_animated_steps_index]}"
     server_stop_animated_steps_index=$(((server_stop_animated_steps_index + 1) % 4))
     ((timeout--))
     if [ $timeout -eq 0 ]; then
@@ -103,4 +103,4 @@ while [ "$(docker inspect -f {{.State.Running}} $docker_name)" == "true" ]; do
     sleep 1
 done
 
-echo "Done"
+echo -e "${erase_current_line_sequence}Waiting for docker container to stop...Done"

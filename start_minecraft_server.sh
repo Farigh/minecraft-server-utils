@@ -352,7 +352,7 @@ function start_docker()
         local update_status=$(docker exec -i -t $docker_name ps ax -o command | grep 'apt-get' | grep 'upgrade')
         if [ "$update_status" != "" ]; then
             local update_ps_ouput=$(docker exec -i -t $docker_name  bash -c "ps ax -o command | grep dpkg | grep -v grep | head -n 1")
-            update_step=$(echo "$update_ps_ouput" | awk -F " " '{print $NF}' | sed -e 's/[^[:alnum:]+-.]//g')
+            update_step=$(echo "$update_ps_ouput" | awk -F " " '{print $NF}' | sed -e 's/[^A-Za-z0-9+.-]//g')
 
             local update_step_size=${#update_step}
             # Truncate package name to avoid to long prints
