@@ -25,13 +25,23 @@ function get_history()
     # Compute history content index
     if [ "$operation_type" == "backward" ]; then
         ((new_history_index--))
+
+        # Detect out-of-range
+        if [ $new_history_index -lt $buffer_history_min_index ]; then
+            return
+        fi
+
+        # Save current buffer the 1st time we go backward
+        if [ $buffer_history_current_index -gt $buffer_history_max_index ]; then
+            staged_buffer=$input_buffer
+        fi
     else # forward
         ((new_history_index++))
-    fi
 
-    # Detect out-of-range
-    if [ $new_history_index -lt $buffer_history_min_index ] || [ $new_history_index -gt $buffer_history_max_index ]; then
-        return
+        # Detect out-of-range (if staged buffer, restore it)
+        if [ $new_history_index -gt $buffer_history_max_index ] && [ "$staged_buffer" == "" ]; then
+            return
+        fi
     fi
 
     buffer_history_current_index=$new_history_index
@@ -40,7 +50,12 @@ function get_history()
     erase_buffer_content
 
     # Update buffer
-    input_buffer=${buffer_history[$buffer_history_current_index]}
+    if [ $buffer_history_current_index -gt $buffer_history_max_index ]; then
+        input_buffer=$staged_buffer
+        staged_buffer=""
+    else
+        input_buffer=${buffer_history[$buffer_history_current_index]}
+    fi
 
     # Restore promp
     restore_promp
@@ -151,6 +166,7 @@ declare -A buffer_history
 max_buffer_history_entry=20
 buffer_history_min_index=1
 buffer_history_current_index=0
+staged_buffer=""
 buffer_history_max_index=0
 prompt_value=" > "
 input_buffer=""
@@ -192,6 +208,7 @@ while true; do
 
                 # Reset buffer
                 input_buffer=""
+                staged_buffer=""
 
                 # Wait 50ms for logs to refresh so command result appears right away
                 sleep 0.05
@@ -232,6 +249,10 @@ while true; do
         # Any other char
         *)
             input_buffer="$input_buffer$char"
+
+            # Any modification to the current line must reset buffer_history_current_index
+            buffer_history_current_index=$(($buffer_history_max_index + 1))
+
             # Display char
             echo -n "$char"
         ;;
