@@ -11,6 +11,41 @@ source "$utils_dir/functions.config.bash"
 source "$utils_dir/vars.colors.bash"
 source "$utils_dir/vars.default.bash"
 
+# in : history position to get (backward; forward)
+function get_history()
+{
+    local operation_type=$1
+    local new_history_index=$buffer_history_current_index
+
+    # No history yet
+    if [ $new_history_index -eq 0 ]; then
+        return
+    fi
+
+    # Compute history content index
+    if [ "$operation_type" == "backward" ]; then
+        ((new_history_index--))
+    else # forward
+        ((new_history_index++))
+    fi
+
+    # Detect out-of-range
+    if [ $new_history_index -lt $buffer_history_min_index ] || [ $new_history_index -gt $buffer_history_max_index ]; then
+        return
+    fi
+
+    buffer_history_current_index=$new_history_index
+
+    # Erase on-screen buffer display before displaying new buffer content
+    erase_buffer_content
+
+    # Update buffer
+    input_buffer=${buffer_history[$buffer_history_current_index]}
+
+    # Restore promp
+    restore_promp
+}
+
 function erase_buffer_content()
 {
     local current_term_cols=$(tput cols)
@@ -112,6 +147,11 @@ if [ $backlog_start -lt 1 ]; then
     backlog_start=1
 fi
 
+declare -A buffer_history
+max_buffer_history_entry=20
+buffer_history_min_index=1
+buffer_history_current_index=0
+buffer_history_max_index=0
 prompt_value=" > "
 input_buffer=""
 
@@ -137,6 +177,19 @@ while true; do
                 # Restore promp
                 restore_promp
 
+                # Add entry to history (do not record empty cmd)
+                if [ "$input_buffer" != "" ]; then
+                    ((buffer_history_max_index++))
+                    buffer_history[$buffer_history_max_index]=$input_buffer
+                    buffer_history_current_index=$(($buffer_history_max_index + 1))
+
+                    # Purge history
+                    if [[ $(($buffer_history_max_index - $buffer_history_min_index)) -ge $max_buffer_history_entry ]]; then
+                        unset buffer_history[$buffer_history_min_index]
+                        ((buffer_history_min_index++))
+                    fi
+                fi
+
                 # Reset buffer
                 input_buffer=""
 
@@ -156,8 +209,22 @@ while true; do
         ;;
         $'\e')
             # Escape sequence, skip next 2 chars (most common escape sequence, should read 1 or 2 more for all special keys)
-            read -s -n1 -t 0.0001 skip
-            read -s -n1 -t 0.0001 skip
+            read -s -n1 -t 0.0001 skip1
+            read -s -n1 -t 0.0001 skip2
+
+            # Look for some special keys
+            if [ "$skip1" == "[" ] || [ "$skip1" == "0" ]; then
+                case "$skip2" in
+                    # Up key
+                    'A')
+                        get_history backward
+                    ;;
+                    # Down key
+                    'B')
+                        get_history forward
+                    ;;
+                esac
+            fi
         ;;
         $'\t')
             # Ignore tabs
