@@ -22,7 +22,7 @@ read -p "Do you want to add the current user to docker group ? [Y/N] " -n 1 -r
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-    echo "Adding user $USER to docker group"
+    echo "Adding user ${USER} to docker group"
     $sudo_prefix usermod -a -G docker $USER || (echo "Process failed" && exit 1)
 else
     echo "Skipped"

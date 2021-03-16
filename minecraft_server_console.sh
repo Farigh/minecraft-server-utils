@@ -1,15 +1,15 @@
 #! /bin/bash
 
-resolved_script_path=`readlink -f $0`
-current_script_dir=`dirname $resolved_script_path`
-current_full_path=`readlink -e $current_script_dir`
+resolved_script_path=$(readlink -f "$0")
+current_script_dir=$(dirname "${resolved_script_path}")
+current_full_path=$(readlink -e "${current_script_dir}")
 
 # Includes
-utils_dir="$current_full_path/.utils"
+utils_dir="${current_full_path}/.utils"
 
-source "$utils_dir/functions.config.bash"
-source "$utils_dir/vars.colors.bash"
-source "$utils_dir/vars.default.bash"
+source "${utils_dir}/functions.config.bash"
+source "${utils_dir}/vars.colors.bash"
+source "${utils_dir}/vars.default.bash"
 
 # in : history position to get (backward; forward)
 function get_history()
@@ -23,7 +23,7 @@ function get_history()
     fi
 
     # Compute history content index
-    if [ "$operation_type" == "backward" ]; then
+    if [ "${operation_type}" == "backward" ]; then
         ((new_history_index--))
 
         # Detect out-of-range
@@ -39,7 +39,7 @@ function get_history()
         ((new_history_index++))
 
         # Detect out-of-range (if staged buffer, restore it)
-        if [ $new_history_index -gt $buffer_history_max_index ] && [ "$staged_buffer" == "" ]; then
+        if [ $new_history_index -gt $buffer_history_max_index ] && [ "${staged_buffer}" == "" ]; then
             return
         fi
     fi
@@ -89,8 +89,7 @@ function restore_promp()
     echo "=============== (enter 'q' to quit) ==============="
 
     # Restore input buffer
-    local diff=$(wc -l "$server_latest_logs" | cut -d' ' -f1)
-    echo -n "$prompt_value$input_buffer"
+    echo -n "${prompt_value}${input_buffer}"
 }
 
 function process_logs()
@@ -99,14 +98,14 @@ function process_logs()
     local linebuffer
 
     # If no new entry in logs, just return
-    if [ $(($backlog_start - 1)) -eq $(wc -l "$server_latest_logs" | cut -d' ' -f1) ]; then
+    if [ $(($backlog_start - 1)) -eq $(wc -l "${server_latest_logs}" | cut -d' ' -f1) ]; then
         return
     fi
 
     while read -e log_line; do
         linebuffer[$index]=$log_line
         ((index++))
-    done < <(tail -n+$backlog_start "$server_latest_logs")
+    done < <(tail -n+$backlog_start "${server_latest_logs}")
 
     #######################
     ### Refresh display ###
@@ -150,14 +149,14 @@ config_dir="${current_full_path}/config"
 
 load_config_file $config_dir $default_server_data_dir
 
-minecraft_server_stdin="$server_data_dir/minecraft_server.stdin"
-server_latest_logs="$server_data_dir/logs/latest.log"
+minecraft_server_stdin="${server_data_dir}/minecraft_server.stdin"
+server_latest_logs="${server_data_dir}/logs/latest.log"
 
 # Wait for server to start logging
 wait_for_server_logs
 
 max_backlog_size=10
-backlog_start=$(($(wc -l "$server_latest_logs" | cut -d' ' -f1) - $max_backlog_size))
+backlog_start=$(($(wc -l "${server_latest_logs}" | cut -d' ' -f1) - $max_backlog_size))
 if [ $backlog_start -lt 1 ]; then
     backlog_start=1
 fi
@@ -179,22 +178,22 @@ while true; do
     IFS= read -t1 -r -s -n1 char
     read_status=$?
 
-    case "$char" in
+    case "${char}" in
         # Carriage return (read_status != 0 means we timed out)
         $'\0')
             if [ $read_status -eq 0 ]; then
-                if [ "$input_buffer" == "q" ]; then
+                if [ "${input_buffer}" == "q" ]; then
                     break
                 fi
                 # Erase on-screen buffer display before sending content
                 erase_buffer_content
-                echo "$input_buffer" > $minecraft_server_stdin;
+                echo "${input_buffer}" > $minecraft_server_stdin;
 
                 # Restore promp
                 restore_promp
 
                 # Add entry to history (do not record empty cmd)
-                if [ "$input_buffer" != "" ]; then
+                if [ "${input_buffer}" != "" ]; then
                     ((buffer_history_max_index++))
                     buffer_history[$buffer_history_max_index]=$input_buffer
                     buffer_history_current_index=$(($buffer_history_max_index + 1))
@@ -230,8 +229,8 @@ while true; do
             read -s -n1 -t 0.0001 skip2
 
             # Look for some special keys
-            if [ "$skip1" == "[" ] || [ "$skip1" == "0" ]; then
-                case "$skip2" in
+            if [ "${skip1}" == "[" ] || [ "$skip1" == "0" ]; then
+                case "${skip2}" in
                     # Up key
                     'A')
                         get_history backward
@@ -248,13 +247,13 @@ while true; do
         ;;
         # Any other char
         *)
-            input_buffer="$input_buffer$char"
+            input_buffer="${input_buffer}${char}"
 
             # Any modification to the current line must reset buffer_history_current_index
             buffer_history_current_index=$(($buffer_history_max_index + 1))
 
             # Display char
-            echo -n "$char"
+            echo -n "${char}"
         ;;
     esac
 

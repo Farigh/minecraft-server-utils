@@ -1,15 +1,15 @@
 #! /bin/bash
 
-resolved_script_path=`readlink -f $0`
-current_script_dir=`dirname $resolved_script_path`
-current_full_path=`readlink -e $current_script_dir`
+resolved_script_path=$(readlink -f "$0")
+current_script_dir=$(dirname "${resolved_script_path}")
+current_full_path=$(readlink -e "${current_script_dir}")
 
 # Includes
-utils_dir="$current_full_path/.utils"
+utils_dir="${current_full_path}/.utils"
 
-source "$utils_dir/functions.config.bash"
-source "$utils_dir/vars.colors.bash"
-source "$utils_dir/vars.default.bash"
+source "${utils_dir}/functions.config.bash"
+source "${utils_dir}/vars.colors.bash"
+source "${utils_dir}/vars.default.bash"
 
 # in : minecraft server data dir
 # in : time to shutdown
@@ -19,21 +19,21 @@ function send_and_log_time_to_shutdown()
     local time_to_shutdown="$2"
     local message_time=$(date +"%H:%M:%S")
 
-    local minecraft_server_stdin="$minecraft_server_data_dir/minecraft_server.stdin"
-    local minecraft_server_log="$minecraft_server_data_dir/logs/latest.log"
+    local minecraft_server_stdin="${minecraft_server_data_dir}/minecraft_server.stdin"
+    local minecraft_server_log="${minecraft_server_data_dir}/logs/latest.log"
 
     local text_to_display
-    if [ "$time_to_shutdown" != "now" ]; then
-        text_to_display="Server will automatically shutdown in $time_to_shutdown"
+    if [ "${time_to_shutdown}" != "now" ]; then
+        text_to_display="Server will automatically shutdown in ${time_to_shutdown}"
     else
         text_to_display="Stopping server"
     fi
 
-    echo "tellraw @a {\"text\":\"$text_to_display\",color:\"dark_red\"}" >> "$minecraft_server_stdin"
-    echo "[$message_time] [Server] $text_to_display" | tee -a "$minecraft_server_log"
+    echo "tellraw @a {\"text\":\"$text_to_display\",color:\"dark_red\"}" >> "${minecraft_server_stdin}"
+    echo "[${message_time}] [Server] ${text_to_display}" | tee -a "${minecraft_server_log}"
 
-    if [ "$time_to_shutdown" == "now" ]; then
-        echo "stop" >> "$minecraft_server_stdin"
+    if [ "${time_to_shutdown}" == "now" ]; then
+        echo "stop" >> "${minecraft_server_stdin}"
     fi
 }
 
@@ -57,9 +57,9 @@ function timer_values_add()
 
 config_dir="${current_full_path}/config"
 
-load_config_file $config_dir $default_server_data_dir
+load_config_file "${config_dir}" "${default_server_data_dir}"
 
-if [ ! -p "$server_data_dir/minecraft_server.stdin" ]; then
+if [ ! -p "${server_data_dir}/minecraft_server.stdin" ]; then
     echo "${RED_COLOR}Error: can't find server fifo, make sure the server is running${RESET_COLOR}"
     exit 1
 fi
@@ -92,7 +92,7 @@ server_stop_animated_steps[3]="\\"
 server_stop_animated_steps_index=0
 erase_current_line_sequence="\r$(tput el)" # clear to end of line
 timeout=120 # Server should stop in less than 2 minutes
-while [ "$(docker inspect -f {{.State.Running}} $docker_name)" == "true" ]; do
+while [ "$(docker inspect -f '{{.State.Running}}' ${docker_name})" == "true" ]; do
     echo -ne "${erase_current_line_sequence}Waiting for docker container to stop... ${server_stop_animated_steps[$server_stop_animated_steps_index]}"
     server_stop_animated_steps_index=$(((server_stop_animated_steps_index + 1) % 4))
     ((timeout--))

@@ -1,19 +1,19 @@
 #! /bin/bash
 
 docker_hub_image=itzg/minecraft-server
-resolved_script_path=`readlink -f $0`
-current_script_dir=`dirname $resolved_script_path`
-current_full_path=`readlink -e $current_script_dir`
-docker_diff_path="$current_full_path/.utils/docker-diff"
+resolved_script_path=$(readlink -f "$0")
+current_script_dir=$(dirname "${resolved_script_path}")
+current_full_path=$(readlink -e "${current_script_dir}")
+docker_diff_path="${current_full_path}/.utils/docker-diff"
 script_start_date=$(date +"%s")
 erase_current_line_sequence="\r$(tput el)" # clear to end of line
 
 # Includes
-utils_dir="$current_full_path/.utils"
+utils_dir="${current_full_path}/.utils"
 
-source "$utils_dir/functions.config.bash"
-source "$utils_dir/vars.colors.bash"
-source "$utils_dir/vars.default.bash"
+source "${utils_dir}/functions.config.bash"
+source "${utils_dir}/vars.colors.bash"
+source "${utils_dir}/vars.default.bash"
 
 ################################################
 ###                FUNCTIONS                 ###
@@ -22,33 +22,33 @@ source "$utils_dir/vars.default.bash"
 # out : docker_run_opt
 function create_docker_options()
 {
-    docker_run_opt="-d -v $server_data_dir:/data"
+    docker_run_opt="-d -v ${server_data_dir}:/data"
     local error_occured=0
 
-    if [ "$linux_autoupdate" != "" ]; then
-        if [ "$linux_autoupdate" == "true" ]; then
+    if [ "${linux_autoupdate}" != "" ]; then
+        if [ "${linux_autoupdate}" == "true" ]; then
             docker_run_opt="${docker_run_opt} -e KEEP_LINUX_UP_TO_DATE=true"
-        elif [ "$linux_autoupdate" != "false" ]; then
-            echo "${WHITE_BOLD_COLOR}Info: linux_autoupdate set to unknown value '$linux_autoupdate', ignoring it${RESET_COLOR}"
+        elif [ "${linux_autoupdate}" != "false" ]; then
+            echo "${WHITE_BOLD_COLOR}Info: linux_autoupdate set to unknown value '${linux_autoupdate}', ignoring it${RESET_COLOR}"
         fi
     fi
 
-    if [ "$minecraft_version" == "" ]; then
+    if [ "${minecraft_version}" == "" ]; then
         echo "${RED_COLOR}Error: minecraft_version can not be empty${RESET_COLOR}"
         error_occured=1
     else
         docker_run_opt="${docker_run_opt} -e VERSION=${minecraft_version}"
     fi
 
-    if [ "$minecraft_server_type" == "" ]; then
+    if [ "${minecraft_server_type}" == "" ]; then
         echo "${RED_COLOR}Error: minecraft_server_type can not be empty${RESET_COLOR}"
         error_occured=1
     else
         docker_run_opt="${docker_run_opt} -e TYPE=${minecraft_server_type}"
     fi
 
-    if [ "$minecraft_server_type" == "FORGE" ]; then
-        if [ "$minecraft_forge_version" == "" ]; then
+    if [ "${minecraft_server_type}" == "FORGE" ]; then
+        if [ "${minecraft_forge_version}" == "" ]; then
             echo "${WHITE_BOLD_COLOR}Info: minecraft_forge_version not specified, using RECOMMENDED version${RESET_COLOR}"
             minecraft_forge_version=RECOMMENDED
         fi
@@ -56,7 +56,7 @@ function create_docker_options()
         docker_run_opt="${docker_run_opt} -e FORGEVERSION=${minecraft_forge_version}"
     fi
 
-    if [ "$minecraft_host_port" == "" ]; then
+    if [ "${minecraft_host_port}" == "" ]; then
         echo "${RED_COLOR}Error: minecraft_host_port can not be empty${RESET_COLOR}"
         error_occured=1
     else
@@ -66,7 +66,7 @@ function create_docker_options()
     # Add eula option
     docker_run_opt="${docker_run_opt} -e EULA=TRUE"
 
-    if [ "$docker_name" == "" ]; then
+    if [ "${docker_name}" == "" ]; then
         echo "${RED_COLOR}Error: docker_name can not be empty${RESET_COLOR}"
         error_occured=1
     else
@@ -85,8 +85,8 @@ function create_docker_options()
 
 function check_if_not_already_started()
 {
-    if [ "$(docker inspect -f {{.State.Running}} $docker_name)" == "true" ]; then
-        echo "${RED_COLOR}Error: container '$docker_name' is already running${RESET_COLOR}"
+    if [ "$(docker inspect -f '{{.State.Running}}' ${docker_name})" == "true" ]; then
+        echo "${RED_COLOR}Error: container '${docker_name}' is already running${RESET_COLOR}"
         exit 1
     fi
 }
@@ -97,7 +97,7 @@ function check_if_port_is_already_used()
     local docker_if_running_cond="{{if eq true .State.Running }}"
     local docker_display_code="{{.Name}} {{ (index (index .HostConfig.PortBindings \"25565/tcp\") 0).HostPort }}"
     local docker_inspect_result=$(docker inspect -f "${docker_if_running_cond}${docker_display_code}{{end}}" $(docker ps -aq))
-    local filtered_result=$(echo -e "$docker_inspect_result" | grep " ${minecraft_host_port}$")
+    local filtered_result=$(echo -e "${docker_inspect_result}" | grep " ${minecraft_host_port}$")
 
     if [ "${filtered_result}" != "" ]; then
         echo "${RED_COLOR}Error: Running docker container already listening on port ${minecraft_host_port}:"
@@ -111,73 +111,73 @@ function check_if_port_is_already_used()
 function pull_docker()
 {
     local force_docker_update=$1
-    local docker_find_image=`docker images | grep "^$docker_hub_image "`
+    local docker_find_image=$(docker images | grep "^${docker_hub_image} ")
     # Initialize to 0
     is_docker_run_needed=0
 
-    if [ "$docker_check_for_updates" == "true" ] \
-       || [ "$force_docker_update" == "true" ]   \
-       || [ "$docker_find_image" == "" ]; then
+    if [ "${docker_check_for_updates}" == "true" ] \
+       || [ "${force_docker_update}" == "true" ]   \
+       || [ "${docker_find_image}" == "" ]; then
         # Only pull docker image if it does not exist, check for update option is enabled or force update is activated
-        echo "=== Pulling docker container from '$docker_hub_image' ..."
+        echo "=== Pulling docker container from '${docker_hub_image}' ..."
         docker pull $docker_hub_image
     fi
 
-    if [ "$docker_find_image" == "" ]; then
+    if [ "${docker_find_image}" == "" ]; then
         # First pull, don't go any further
         is_docker_run_needed=1
         return
     fi
 
-    echo "=== Checking docker hub version for '$docker_hub_image' ..."
+    echo "=== Checking docker hub version for '${docker_hub_image}' ..."
 
-    local server_version=`docker inspect --format "{{.Id}}" $docker_hub_image`
+    local server_version=$(docker inspect --format "{{.Id}}" "${docker_hub_image}")
 
-    local docker_ps=`docker ps -a | grep $docker_name`
+    local docker_ps=$(docker ps -a | grep "${docker_name}")
 
-    echo "  Latest server version = $server_version"
+    echo "  Latest server version = ${server_version}"
 
-    if [ "$docker_ps" != "" ]; then
-        docker_container_id=`echo $docker_ps | cut -d' ' -f 1`
-        current_version=`docker inspect --format "{{.Image}}" $docker_container_id`
+    if [ "${docker_ps}" != "" ]; then
+        docker_container_id=$(echo "${docker_ps}" | cut -d' ' -f 1)
+        current_version=$(docker inspect --format "{{.Image}}" "${docker_container_id}")
 
-        echo "  Current version       = $current_version"
-        echo "  Configured version    = $docker_commit"
+        echo "  Current version       = ${current_version}"
+        echo "  Configured version    = ${docker_commit}"
 
         # TODO: check current container config
-        if [ "$server_version" != "$docker_commit" ]; then
+        if [ "${server_version}" != "${docker_commit}" ]; then
             # Update required, backup config and modify docker_commit
-            if [ "$force_docker_update" == "true" ]; then
+            if [ "${force_docker_update}" == "true" ]; then
                 docker_commit=$server_version
                 # Backup config file
                 cp -f "${config_file}" "${config_file}.bak"
                 sed -i "s/docker_commit=[a-fA-F0-9]*/docker_commit=${server_version}/" "${config_file}"
                 # Update version in config
             # No update required, just print if version differs
-            elif [ "$docker_check_for_updates" == "true" ]; then
+            elif [ "${docker_check_for_updates}" == "true" ]; then
                 echo "${CYAN_COLOR}Info: A new version of the docker container is available${RESET_COLOR}"
                 echo "${CYAN_COLOR}      You can rerun this script using --force-update option to use it${RESET_COLOR}"
                 echo  "${RED_COLOR}      /!\\${CYAN_COLOR} If you do so, it might not work properly anymore${RESET_COLOR}"
             fi
         fi
 
-        if [ "$docker_commit" != "$current_version" ]; then
-            echo -n "Updating to '$docker_commit' revision, removing container and image "
+        if [ "${docker_commit}" != "${current_version}" ]; then
+            echo -n "Updating to '${docker_commit}' revision, removing container and image "
             docker rm $docker_container_id
 
-            date=`date +'%Y-%m-%d'`
-            mkdir -p "$server_data_dir-backups"
-            backup_dir_template="$server_data_dir-backups/$date"
-            backup_dir="$backup_dir_template"
+            date=$(date +'%Y-%m-%d')
+            mkdir -p "${server_data_dir}-backups"
+            backup_dir_template="${server_data_dir}-backups/$date"
+            backup_dir="${backup_dir_template}"
             i=1
             # If dir already exist append number to avoid collision
-            while [ -d "$backup_dir" ]; do
-                backup_dir="${backup_dir_template}-$i"
+            while [ -d "${backup_dir}" ]; do
+                backup_dir="${backup_dir_template}-${i}"
                 ((i++))
             done
 
-            echo "Backup files to $backup_dir ..."
-            cp -r $server_data_dir $backup_dir
+            echo "Backup files to ${backup_dir} ..."
+            cp -r "${server_data_dir}" "${backup_dir}"
             is_docker_run_needed=1
         fi
     else
@@ -189,7 +189,7 @@ function docker_initial_run()
 {
     # TODO: get this location from docker info
     local docker_diff_dir="/var/lib/docker/aufs/diff/"
-    ls $docker_diff_dir 2>/dev/null
+    ls "${docker_diff_dir}" 2>/dev/null
     ls_exit_code=$?
 
     if [ $ls_exit_code -gt 0 ]; then
@@ -198,14 +198,14 @@ function docker_initial_run()
     fi
 
     echo "=== '$docker_name' initial run...."
-    docker_container_id=`docker run $docker_run_opt`
+    docker_container_id=$(docker run ${docker_run_opt})
     # Sleep 10 seconds so it has time to create files
     sleep 10
     echo "=== Done"
 
     # Docker needs to be stopped as it's runned started
-    echo "=== Stopping '$docker_name' to apply patches...."
-    docker stop $docker_name
+    echo "=== Stopping '${docker_name}' to apply patches...."
+    docker stop "${docker_name}"
 
     # Reset last start time
     script_start_date=$(date +"%s")
@@ -213,11 +213,11 @@ function docker_initial_run()
     echo "=== Applying patches...."
     docker_file_location="/var/lib/docker/aufs/diff/$docker_container_id"
 
-    # Wait a bit for file to be flushed here
+    # Wait a bit for the file to be flushed here
     sleep 1
-    echo "docker_file_location = $docker_file_location"
-    patch -d $docker_file_location -p1 < $docker_diff_path/start-minecraft.patch
-    cp $docker_diff_path/start $docker_file_location
+    echo "docker_file_location = ${docker_file_location}"
+    patch -d "${docker_file_location}" -p1 < "${docker_diff_path}/start-minecraft.patch"
+    cp "${docker_diff_path}/start" "${docker_file_location}"
 }
 
 function get_server_launching_status()
@@ -228,17 +228,17 @@ function get_server_launching_status()
     server_launch_animated_steps[2]="-"
     server_launch_animated_steps[3]="\\"
     local server_launch_animated_steps_index=0
-    local server_log_file="$server_data_dir/logs/latest.log"
-    local forge_server_log_file="$server_data_dir/logs/fml-server-latest.log"
+    local server_log_file="${server_data_dir}/logs/latest.log"
+    local forge_server_log_file="${server_data_dir}/logs/fml-server-latest.log"
 
     # Read default log file
-    local tail_options="-n 1 -f $server_log_file"
+    local tail_options="-n 1 -f ${server_log_file}"
     local forge_initialisation_done=1
     local mc_server_initialisation_done=0
     local waiting_count=0
 
     # Wait for log files to exist and up-to-date
-    while [ ! -f "$server_log_file" ] \
+    while [ ! -f "${server_log_file}" ] \
        || [ $(stat -c '%Y' $server_log_file) -le $script_start_date ];
     do
         if [ $waiting_count -eq 0 ]; then
@@ -252,13 +252,13 @@ function get_server_launching_status()
     done
 
     # Add forge log file if using it
-    if [ "$minecraft_server_type" == "FORGE" ]; then
-        tail_options="$tail_options -f $forge_server_log_file"
+    if [ "${minecraft_server_type}" == "FORGE" ]; then
+        tail_options="${tail_options} -f '${forge_server_log_file}'"
         forge_initialisation_done=0
 
         # Wait for log files to exist and up-to-date
-        while [ ! -f "$forge_server_log_file" ] \
-           || [ $(stat -c '%Y' $forge_server_log_file) -le $script_start_date ];
+        while [ ! -f "${forge_server_log_file}" ] \
+           || [ $(stat -c '%Y' "${forge_server_log_file}") -le $script_start_date ];
         do
             if [ $waiting_count -eq 0 ]; then
                 echo -ne "${erase_current_line_sequence}  Running server...( ${server_launch_animated_steps[$server_launch_animated_steps_index]} waiting for forge logs)"
@@ -279,45 +279,45 @@ function get_server_launching_status()
 
     while read server_log_line; do
         # Server started
-        if [[ "$server_log_line" == *"Done"*"For help, type"* ]]; then
+        if [[ "${server_log_line}" == *"Done"*"For help, type"* ]]; then
             server_status="Server started !"
             mc_server_initialisation_done=1
         fi
 
-        displayed_status="$server_status"
+        displayed_status="${server_status}"
 
         # Looking for forge events
         if [ $forge_initialisation_done -ne 1 ]; then
-            if [[ "$server_log_line" == *"Attempting to load mods"* ]]; then
+            if [[ "${server_log_line}" == *"Attempting to load mods"* ]]; then
                 forge_status="Forge: Scanning for mods..."
-            elif [[ "$server_log_line" == *"Found translations"* ]]; then
+            elif [[ "${server_log_line}" == *"Found translations"* ]]; then
                 forge_status="Forge: Looking for localization..."
-            elif [[ "$server_log_line" == *"Sending event FMLConstructionEvent"* ]]; then
+            elif [[ "${server_log_line}" == *"Sending event FMLConstructionEvent"* ]]; then
                 forge_status="Forge: Constructing mods..."
-            elif [[ "$server_log_line" == *"Sending event FMLPreInitializationEvent"* ]]; then
+            elif [[ "${server_log_line}" == *"Sending event FMLPreInitializationEvent"* ]]; then
                 forge_status="Forge: Preinitializing mods..."
-            elif [[ "$server_log_line" == *"Sending event FMLInitializationEvent"* ]]; then
+            elif [[ "${server_log_line}" == *"Sending event FMLInitializationEvent"* ]]; then
                 forge_status="Forge: Initializing mods..."
-            elif [[ "$server_log_line" == *"Sending event IMCEvent"* ]]; then
+            elif [[ "${server_log_line}" == *"Sending event IMCEvent"* ]]; then
                 forge_status="Forge: Establishing comm with mods..."
-            elif [[ "$server_log_line" == *"Sending event FMLPostInitializationEvent"* ]]; then
+            elif [[ "${server_log_line}" == *"Sending event FMLPostInitializationEvent"* ]]; then
                 forge_status="Forge: Postinitializing mods..."
-            elif [[ "$server_log_line" == *"Sending event FMLLoadCompleteEvent"* ]]; then
+            elif [[ "${server_log_line}" == *"Sending event FMLLoadCompleteEvent"* ]]; then
                 forge_status="Forge: Complete loading mods..."
-            elif [[ "$server_log_line" == *"Sending event FMLModIdMappingEvent"* ]]; then
+            elif [[ "${server_log_line}" == *"Sending event FMLModIdMappingEvent"* ]]; then
                 forge_status="Forge: Mapping mod ids..."
-            elif [[ "$server_log_line" == *"Sending event FMLServerStartingEvent"* ]]; then
+            elif [[ "${server_log_line}" == *"Sending event FMLServerStartingEvent"* ]]; then
                 forge_status="Forge: Sending server started event..."
-            elif [[ "$server_log_line" == *"Bar Finished: ServerStarted "* ]]; then
+            elif [[ "${server_log_line}" == *"Bar Finished: ServerStarted "* ]]; then
                 forge_status="Forge started !"
                 forge_initialisation_done=1
             fi
 
-            displayed_status="$server_status $forge_status"
+            displayed_status="${server_status} ${forge_status}"
         fi
 
         # Print on the same line erasing previous chars
-        echo -ne "${erase_current_line_sequence}  Running server...( ${server_launch_animated_steps[$server_launch_animated_steps_index]} $displayed_status)"
+        echo -ne "${erase_current_line_sequence}  Running server...( ${server_launch_animated_steps[$server_launch_animated_steps_index]} ${displayed_status})"
         server_launch_animated_steps_index=$(((server_launch_animated_steps_index + 1) % 4))
 
         if [ $mc_server_initialisation_done -eq 1 ] && [ $forge_initialisation_done -eq 1 ]; then
@@ -347,12 +347,12 @@ function start_docker()
     animated_steps[2]="-"
     animated_steps[3]="\\"
     local animate_index=0
-    while [ "`docker exec -i -t $docker_name ps ax -o command | grep 'apt-get'`" != "" ]; do
+    while [ "$(docker exec -i -t ${docker_name} ps ax -o command | grep 'apt-get')" != "" ]; do
         local update_step="retreiving package lists"
-        local update_status=$(docker exec -i -t $docker_name ps ax -o command | grep 'apt-get' | grep 'upgrade')
+        local update_status=$(docker exec -i -t "${docker_name}" ps ax -o command | grep 'apt-get' | grep 'upgrade')
         if [ "$update_status" != "" ]; then
-            local update_ps_ouput=$(docker exec -i -t $docker_name  bash -c "ps ax -o command | grep dpkg | grep -v grep | head -n 1")
-            update_step=$(echo "$update_ps_ouput" | awk -F " " '{print $NF}' | sed -e 's/[^A-Za-z0-9+.-]//g')
+            local update_ps_ouput=$(docker exec -i -t "${docker_name}" bash -c "ps ax -o command | grep dpkg | grep -v grep | head -n 1")
+            update_step=$(echo "${update_ps_ouput}" | awk -F " " '{print $NF}' | sed -e 's/[^A-Za-z0-9+.-]//g')
 
             local update_step_size=${#update_step}
             # Truncate package name to avoid to long prints
@@ -362,7 +362,7 @@ function start_docker()
                 update_step="${update_step_begin}...${update_step_end}"
             fi
         fi
-        echo -ne "${erase_current_line_sequence}  Updating Linux packages...( ${animated_steps[$animate_index]} $update_step)"
+        echo -ne "${erase_current_line_sequence}  Updating Linux packages...( ${animated_steps[$animate_index]} ${update_step})"
         animate_index=$(((animate_index + 1) % 4))
         sleep 1
     done
@@ -372,7 +372,7 @@ function start_docker()
     echo -ne "  Running server...( ${animated_steps[$animate_index]} starting java process)"
     animate_index=$(((animate_index + 1) % 4))
     # Wait for java to start
-    while [ "`docker exec -i -t $docker_name ps ax -o command | grep 'java'`" == "" ]; do
+    while [ "$(docker exec -i -t ${docker_name} ps ax -o command | grep 'java')" == "" ]; do
         sleep 1
         echo -ne "${erase_current_line_sequence}  Running server...( ${animated_steps[$animate_index]} starting java process)"
         animate_index=$(((animate_index + 1) % 4))
@@ -451,13 +451,13 @@ source ${config_file}
 load_config_file $config_dir $default_server_data_dir
 
 # Create server data dir on first run
-if [ ! -d "$server_data_dir" ]; then
-    if [ -e "$server_data_dir" ]; then
-        echo "${RED_COLOR}Error: '$server_data_dir' exists but is not a directory${RESET_COLOR}"
+if [ ! -d "${server_data_dir}" ]; then
+    if [ -e "${server_data_dir}" ]; then
+        echo "${RED_COLOR}Error: '${server_data_dir}' exists but is not a directory${RESET_COLOR}"
         exit 1
     else
-        echo "${CYAN_COLOR}Info: Creating directory '$server_data_dir'${RESET_COLOR}"
-        mkdir -p "$server_data_dir" || (echo "${RED_COLOR}Error: Can't create '$server_data_dir'${RESET_COLOR}" && exit 1)
+        echo "${CYAN_COLOR}Info: Creating directory '${server_data_dir}'${RESET_COLOR}"
+        mkdir -p "$server_data_dir" || (echo "${RED_COLOR}Error: Can't create '${server_data_dir}'${RESET_COLOR}" && exit 1)
     fi
 fi
 
@@ -466,9 +466,9 @@ print_config_params
 check_if_not_already_started
 check_if_port_is_already_used
 
-pull_docker $force_update
+pull_docker "${force_update}"
 
-if [ "$is_docker_run_needed" == "1" ]; then
+if [ "${is_docker_run_needed}" == "1" ]; then
     create_docker_options
     docker_initial_run
 fi
